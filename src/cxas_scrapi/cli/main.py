@@ -26,6 +26,7 @@ import subprocess
 import sys
 import time
 import uuid
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from cxas_scrapi.cli.insights_cli import populate_insights_parser
@@ -36,6 +37,12 @@ from cxas_scrapi.cli.trace_cli import register as register_trace_subparser
 from cxas_scrapi.utils.eval_utils import (
     COMBINED_REPORT_FILENAME,
     COMBINED_REPORT_JSON_FILENAME,
+)
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*Your application has authenticated using end user credentials from Google Cloud SDK without a quota project.*",
+    category=UserWarning,
 )
 
 DEFAULT_MODEL = "gemini-3.1-flash-live"
@@ -1621,6 +1628,7 @@ def get_parser() -> argparse.ArgumentParser:
         help_suffix = "" if required else " (Optional if using Display Name)"
         subparser.add_argument(
             "--project-id",
+            "--project_id",
             required=required,
             help=f"The GCP Project ID.{help_suffix}",
         )
@@ -2740,6 +2748,40 @@ def get_parser() -> argparse.ArgumentParser:
             "the exported app will be deleted."
         ),
     )
+    parser_pull.add_argument(
+        "--passport",
+        action="store_true",
+        help=(
+            "Export a portable Passport bundle: the same files as a plain pull "
+            "(project-specific values become placeholders; toolsets no agent "
+            "uses are removed), a root PLACEHOLDERS.md listing every "
+            "placeholder by file and line, and passport/ with manifest.json "
+            "and one folder per Google Cloud resource the agent uses (BigQuery "
+            "DDL and <=100-row seed.sql, Cloud Run service.yaml and redacted "
+            "MCP tools.yaml, Cloud Functions source, Cloud Storage files, "
+            "Secret Manager metadata and IAM, Vertex AI Search configs, and "
+            "service accounts). Secret values and conversation recordings are "
+            "never exported."
+        ),
+    )
+    parser_pull.add_argument(
+        "--no-live-introspect",
+        action="store_true",
+        help=(
+            "With --passport: do not read the Google Cloud resources (schemas, "
+            "service specs, IAM, objects); the resource folders then only "
+            "document what the agent references."
+        ),
+    )
+    parser_pull.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "With --passport: fail (exit 1) when an attached resource cannot be "
+            "read. Without it the pull records the resource as not readable, "
+            "with the error and the missing permission, and exits 0."
+        ),
+    )
     _add_project_location_args(parser_pull, required=False)
     parser_pull.set_defaults(func=app_pull)
 
@@ -2791,6 +2833,69 @@ def get_parser() -> argparse.ArgumentParser:
             "Overwrite existing data with imported data. Existing resources "
             "that do not have a matching display name in the imported app "
             "will be deleted"
+        ),
+    )
+    parser_push.add_argument(
+        "--passport",
+        action="store_true",
+        help=(
+            "Push a `cxas pull --passport` bundle: replace its placeholders "
+            "(${GCP_PROJECT} from --project-id, ${GCP_PROJECT_NUMBER} looked up "
+            "from it, others from --set), stop before the upload if any is left "
+            "or a pre-push gate fails, read the app back after the upload to "
+            "check that CES kept the model, toolsets and tools, and log the push "
+            "to passport/ledger.jsonl."
+        ),
+    )
+    parser_push.add_argument(
+        "--project-number",
+        default=None,
+        help=(
+            "Target project number for ${GCP_PROJECT_NUMBER} with --passport "
+            "(default: looked up from --project-id)."
+        ),
+    )
+    parser_push.add_argument(
+        "--set",
+        dest="set_values",
+        action="append",
+        default=None,
+        metavar="NAME=VALUE",
+        help=(
+            "Value of a passport placeholder, e.g. --set GCS_BUCKET_KB=my-bucket "
+            "(repeatable; see the bundle's PLACEHOLDERS.md)."
+        ),
+    )
+    parser_push.add_argument(
+        "--toolbox-url",
+        default=None,
+        help="With --passport: point every MCP toolset at this URL instead of the one the passport derives.",
+    )
+    parser_push.add_argument(
+        "--moh-uri",
+        default=None,
+        help="With --passport: replace the music-on-hold URI assigned in callbacks.",
+    )
+    parser_push.add_argument(
+        "--gcs-bucket",
+        default=None,
+        help="With --passport: replace the audio recording buckets of the app's logging settings.",
+    )
+    parser_push.add_argument(
+        "--skip-passport-gates",
+        action="store_true",
+        help=(
+            "Warn instead of aborting when a Passport pre-push gate fails or the "
+            "app read back after the upload lacks something."
+        ),
+    )
+    parser_push.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "With --passport: fail (exit 1) when any attached Google Cloud "
+            "resource or IAM binding in the target project is missing or "
+            "misconfigured in the Target Project Readiness Report."
         ),
     )
     parser_push.set_defaults(func=app_push)

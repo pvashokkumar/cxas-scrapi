@@ -129,5 +129,6 @@ cxas push \
 ## Related Commands
 
 - [`cxas pull`](pull.md) — Download an app to a local directory first.
+- [CXAS Passport (`--passport`)](passport.md) — Stamp placeholders, enforce pre-push gates, and audit target project readiness.
 - [`cxas create`](create.md) — Create an empty app shell before pushing.
 - [`cxas ci-test`](ci-test.md) — Run the full push + test lifecycle in CI.

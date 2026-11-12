@@ -20,6 +20,7 @@ import importlib.metadata
 import os
 import re
 import typing
+import warnings
 from typing import Any
 
 from google.api_core.gapic_v1.client_info import ClientInfo
@@ -29,6 +30,15 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
 from proto.marshal.collections import maps, repeated
+
+warnings.filterwarnings(
+    "ignore",
+    message=(
+        ".*Your application has authenticated using end user credentials"
+        " from Google Cloud SDK without a quota project.*"
+    ),
+    category=UserWarning,
+)
 
 # Define global scopes used for CX Agent Studio Requests
 GLOBAL_SCOPES = [
@@ -84,9 +94,52 @@ class Common:
             self.token = oauth_token
 
         else:
-            self.creds, _ = default(scopes=self.scopes)
-            self.creds.refresh(Request())
-            self.token = self.creds.token
+            adc_ok = False
+            explicit_adc_file = bool(
+                os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+            )
+            with contextlib.suppress(Exception):
+                self.creds, _ = default(scopes=self.scopes)
+                self.creds.refresh(Request())
+                self.token = self.creds.token
+                adc_ok = True
+
+            needs_gcloud_fallback = not adc_ok or (
+                not explicit_adc_file
+                and not isinstance(self.creds, service_account.Credentials)
+                and getattr(self.creds, "quota_project_id", None) is None
+            )
+            if (
+                "PYTEST_CURRENT_TEST" not in os.environ
+                and needs_gcloud_fallback
+            ):
+                import subprocess  # noqa: PLC0415
+
+                with contextlib.suppress(OSError, subprocess.SubprocessError):
+                    proc = subprocess.run(
+                        ["gcloud", "auth", "print-access-token", "--quiet"],
+                        stdin=subprocess.DEVNULL,
+                        capture_output=True,
+                        text=True,
+                        env={
+                            **os.environ,
+                            "CLOUDSDK_CORE_DISABLE_PROMPTS": "1",
+                        },
+                        timeout=5,
+                        check=False,
+                    )
+                    cli_tok = (
+                        proc.stdout.strip() if proc.returncode == 0 else ""
+                    )
+                    if cli_tok:
+                        self.creds = Credentials(token=cli_tok)
+                        self.token = cli_tok
+                        adc_ok = True
+
+            if not adc_ok:
+                self.creds, _ = default(scopes=self.scopes)
+                self.creds.refresh(Request())
+                self.token = self.creds.token
 
         self.app_name = app_name
 

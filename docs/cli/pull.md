@@ -99,5 +99,6 @@ cxas pull "my-support-agent-dev" \
 ## Related Commands
 
 - [`cxas push`](push.md) — Upload local changes back to CX Agent Studio.
+- [CXAS Passport (`--passport`)](passport.md) — Export portable cross-project bundles with Google Cloud resource blueprints.
 - [`cxas branch`](branch.md) — Clone an app into a new one without touching your local filesystem.
 - [`cxas apps`](apps.md) — List apps to find the resource name you need.

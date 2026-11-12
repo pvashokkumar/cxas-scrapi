@@ -39,8 +39,8 @@ When you pass a display name (e.g., `"My Support Agent"`) instead of a resource 
 
 | Command | Description |
 |---------|-------------|
-| [`cxas pull`](pull.md) | Export an app from CX Agent Studio to a local directory. |
-| [`cxas push`](push.md) | Upload a local agent directory back to CX Agent Studio. |
+| [`cxas pull`](pull.md) | Export an app from CX Agent Studio to a local directory (supports [`--passport`](passport.md)). |
+| [`cxas push`](push.md) | Upload a local agent directory back to CX Agent Studio (supports [`--passport`](passport.md)). |
 | [`cxas create`](create.md) | Create a brand-new app in CX Agent Studio. |
 | [`cxas delete`](delete.md) | Permanently delete an app. |
 | [`cxas branch`](branch.md) | Clone an existing app into a new one (pull → create → push). |
